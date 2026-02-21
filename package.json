@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "build": "cd client && npm install && npm run build",
+    "build": "cd client && npm install && npm run build && npm run build:widget",
+    "build:widget": "cd client && npx vite build --config widget.vite.config.js",
     "postinstall": "prisma generate",
     "seed": "node scripts/seed.js",
     "db:migrate": "npx prisma migrate dev",

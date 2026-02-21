@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support Hub — Widget Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #1e293b;
+    }
+    .hero {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 40px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      text-align: left;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #1e293b;
+    }
+    .card p {
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .code-block {
+      background: #0f172a;
+      color: #22d3ee;
+      padding: 16px;
+      border-radius: 10px;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      word-break: break-all;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .feature {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .feature h3 {
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .feature p {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+    }
+    .arrow {
+      font-size: 28px;
+      color: #fff;
+      animation: bounce 2s infinite;
+      margin-top: 24px;
+      display: inline-block;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(10px); }
+    }
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 28px; }
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>Support Hub Widget</h1>
+    <p>This page demonstrates the embeddable chat widget. Look at the bottom-right corner!</p>
+
+    <div class="card">
+      <h2>How to Embed</h2>
+      <p>Add this single line of code to any website to get a fully-functional AI support widget:</p>
+      <div class="code-block" id="embed-code">Loading embed code...</div>
+    </div>
+
+    <div class="card">
+      <h2>Features</h2>
+      <div class="features">
+        <div class="feature">
+          <h3>AI Chat</h3>
+          <p>Powered by Claude AI with context from your knowledge base</p>
+        </div>
+        <div class="feature">
+          <h3>FAQ Browser</h3>
+          <p>Searchable FAQs organized by category</p>
+        </div>
+        <div class="feature">
+          <h3>Ticket System</h3>
+          <p>Submit support tickets with category and priority</p>
+        </div>
+        <div class="feature">
+          <h3>Auto Tickets</h3>
+          <p>AI detects issues and suggests creating tickets from chat</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">&#8595;</div>
+    <p style="color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 8px;">
+      Click the chat button in the bottom-right to try it!
+    </p>
+  </div>
+
+  <!-- The widget embed script -->
+  <script>
+    // Fetch the tenant API key to use for the widget demo
+    // In production, the key is hardcoded in the script tag
+    (async function() {
+      try {
+        const baseUrl = window.location.origin;
+        // Try to get the demo tenant's API key from a special endpoint
+        const res = await fetch(baseUrl + '/api/widget/demo-key');
+        const data = await res.json();
+        const apiKey = data.apiKey;
+
+        // Show embed code
+        const embedCode = `&lt;script src="${baseUrl}/widget.js" data-tenant-key="${apiKey}"&gt;&lt;/script&gt;`;
+        document.getElementById('embed-code').innerHTML = embedCode;
+
+        // Dynamically load the widget
+        const script = document.createElement('script');
+        script.src = baseUrl + '/widget.js';
+        script.setAttribute('data-tenant-key', apiKey);
+        document.body.appendChild(script);
+      } catch (e) {
+        document.getElementById('embed-code').textContent = 'Error loading demo key. Make sure the server is running and seed data exists.';
+        console.error('[Widget Test]', e);
+      }
+    })();
+  </script>
+</body>
+</html>

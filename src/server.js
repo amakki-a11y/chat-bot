@@ -73,6 +73,12 @@ app.use('/api/*', (_req, res) => {
 // Serve static files
 const path = require('path');
 
+// Always serve widget.js and widget-test from /public (available in all environments)
+app.use('/widget.js', express.static(path.join(__dirname, '../public/widget.js')));
+app.get('/widget-test', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/widget-test.html'));
+});
+
 if (process.env.NODE_ENV === 'production') {
   // Production: serve built React frontend
   app.use(express.static(path.join(__dirname, '../client/dist')));
