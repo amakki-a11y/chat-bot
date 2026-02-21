@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support Hub - API Test Console</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 22px; font-weight: 700; color: #f8fafc; }
+    .header h1 span { color: #818cf8; }
+    .status-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+    .status-dot.online { background: #22c55e; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* Layout */
+    .container { display: flex; height: calc(100vh - 73px); }
+    .sidebar { width: 220px; background: #1e293b; border-right: 1px solid #334155; padding: 16px 0; flex-shrink: 0; overflow-y: auto; }
+    .sidebar-section { padding: 8px 16px; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar a { display: block; padding: 8px 16px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.15s; cursor: pointer; }
+    .sidebar a:hover { background: #334155; color: #f8fafc; }
+    .sidebar a.active { background: #818cf830; color: #818cf8; border-right: 2px solid #818cf8; }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .panel.active { display: flex; }
+    .panel-header { padding: 20px 28px 12px; border-bottom: 1px solid #1e293b; }
+    .panel-header h2 { font-size: 18px; font-weight: 600; color: #f8fafc; margin-bottom: 4px; }
+    .panel-header p { font-size: 13px; color: #64748b; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px 28px; }
+
+    /* Form elements */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+    input, textarea, select { width: 100%; padding: 10px 14px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 14px; font-family: inherit; transition: border-color 0.15s; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #818cf8; }
+    textarea { resize: vertical; min-height: 80px; }
+    select { cursor: pointer; }
+
+    /* Buttons */
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: #818cf8; color: #fff; }
+    .btn-primary:hover { background: #6366f1; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* Response area */
+    .response-area { margin-top: 16px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+    .response-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #1e293b; border-bottom: 1px solid #334155; }
+    .response-header span { font-size: 12px; font-weight: 600; color: #64748b; }
+    .status-code { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+    .status-code.s2xx { background: #22c55e20; color: #22c55e; }
+    .status-code.s4xx { background: #f59e0b20; color: #f59e0b; }
+    .status-code.s5xx { background: #ef444420; color: #ef4444; }
+    .response-body { padding: 14px; font-family: 'Fira Code', 'Cascadia Code', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; color: #94a3b8; }
+
+    /* Chat widget */
+    .chat-container { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+    .chat-msg.user { align-self: flex-end; background: #818cf8; color: #fff; border-bottom-right-radius: 4px; }
+    .chat-msg.assistant { align-self: flex-start; background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 4px; }
+    .chat-msg.system { align-self: center; background: #334155; color: #94a3b8; font-size: 12px; border-radius: 20px; padding: 6px 16px; }
+    .chat-msg .meta { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .chat-input-area { padding: 16px 20px; border-top: 1px solid #334155; display: flex; gap: 8px; background: #1e293b; }
+    .chat-input-area input { flex: 1; }
+    .ticket-card { background: #1e293b; border: 1px solid #f59e0b40; border-radius: 8px; padding: 12px; margin-top: 8px; }
+    .ticket-card h4 { color: #f59e0b; font-size: 13px; margin-bottom: 8px; }
+    .ticket-card p { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+
+    /* Cards / Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+    .stat-card .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: #f8fafc; margin-top: 4px; }
+    .stat-card .value.green { color: #22c55e; }
+    .stat-card .value.yellow { color: #f59e0b; }
+    .stat-card .value.red { color: #ef4444; }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { text-align: left; padding: 10px 12px; background: #1e293b; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px; border-bottom: 1px solid #334155; }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid #1e293b; color: #e2e8f0; }
+    .data-table tr:hover td { background: #1e293b40; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: #22c55e20; color: #22c55e; }
+    .badge-yellow { background: #f59e0b20; color: #f59e0b; }
+    .badge-red { background: #ef444420; color: #ef4444; }
+    .badge-blue { background: #3b82f620; color: #3b82f6; }
+    .badge-gray { background: #64748b20; color: #94a3b8; }
+
+    /* Loading */
+    .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid #64748b; border-top-color: #818cf8; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .info-box { background: #818cf810; border: 1px solid #818cf830; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #a5b4fc; }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Support <span>Hub</span> &mdash; API Test Console</h1>
+  <div class="status-badge">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Checking...</span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="sidebar">
+    <div class="sidebar-section">General</div>
+    <a class="active" data-panel="health" onclick="showPanel(this)">Health Check</a>
+    <a data-panel="auth" onclick="showPanel(this)">Auth (Register/Login)</a>
+
+    <div class="sidebar-section">Owner Dashboard</div>
+    <a data-panel="bot-config" onclick="showPanel(this)">Bot Config</a>
+    <a data-panel="branding" onclick="showPanel(this)">Branding</a>
+    <a data-panel="channels" onclick="showPanel(this)">Channels</a>
+    <a data-panel="analytics" onclick="showPanel(this)">Analytics</a>
+
+    <div class="sidebar-section">Content</div>
+    <a data-panel="kb" onclick="showPanel(this)">Knowledge Base</a>
+    <a data-panel="faq" onclick="showPanel(this)">FAQ</a>
+
+    <div class="sidebar-section">Support</div>
+    <a data-panel="tickets" onclick="showPanel(this)">Tickets</a>
+
+    <div class="sidebar-section">Chat</div>
+    <a data-panel="chat" onclick="showPanel(this)">Live Chat Test</a>
+  </div>
+
+  <div class="main">
+    <!-- ═══ Health Panel ═══ -->
+    <div class="panel active" id="panel-health">
+      <div class="panel-header"><h2>Health Check & API Status</h2><p>Server connectivity and endpoint overview</p></div>
+      <div class="panel-body">
+        <div class="stats-grid" id="healthStats"></div>
+        <div class="btn-row"><button class="btn btn-primary" onclick="checkHealth()">Refresh Status</button></div>
+        <div class="response-area" id="healthResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Auth Panel ═══ -->
+    <div class="panel" id="panel-auth">
+      <div class="panel-header"><h2>Authentication</h2><p>Register a new tenant or login to get a JWT token</p></div>
+      <div class="panel-body">
+        <div class="info-box" id="authInfo">Not logged in. Register or login to test authenticated endpoints.</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div>
+            <h3 style="font-size:15px; margin-bottom:12px; color:#f8fafc;">Register</h3>
+            <div class="form-group"><label>Name</label><input id="regName" value="Test Company" /></div>
+            <div class="form-group"><label>Email</label><input id="regEmail" value="test@example.com" /></div>
+            <div class="form-group"><label>Password</label><input id="regPass" type="password" value="test123" /></div>
+            <button class="btn btn-success" onclick="register()">Register</button>
+          </div>
+          <div>
+            <h3 style="font-size:15px; margin-bottom:12px; color:#f8fafc;">Login</h3>
+            <div class="form-group"><label>Email</label><input id="loginEmail" value="demo@supporthub.com" /></div>
+            <div class="form-group"><label>Password</label><input id="loginPass" type="password" value="demo123" /></div>
+            <button class="btn btn-primary" onclick="login()">Login</button>
+          </div>
+        </div>
+        <div class="response-area" id="authResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Bot Config Panel ═══ -->
+    <div class="panel" id="panel-bot-config">
+      <div class="panel-header"><h2>Bot Configuration</h2><p>Configure your AI assistant's personality and behavior</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;"><button class="btn btn-secondary" onclick="loadBotConfig()">Load Current Config</button></div>
+        <div class="form-group"><label>Bot Name</label><input id="botName" placeholder="Support Bot" /></div>
+        <div class="form-group"><label>Greeting</label><input id="botGreeting" placeholder="Hello! How can I help?" /></div>
+        <div class="form-group"><label>System Prompt</label><textarea id="botPrompt" rows="4" placeholder="You are a helpful assistant..."></textarea></div>
+        <div class="form-group"><label>Tone</label>
+          <select id="botTone"><option>professional</option><option>friendly</option><option>casual</option><option>formal</option></select>
+        </div>
+        <div class="form-group"><label>Language</label><input id="botLang" value="en" /></div>
+        <div class="btn-row"><button class="btn btn-primary" onclick="saveBotConfig()">Save Config</button></div>
+        <div class="response-area" id="botConfigResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Branding Panel ═══ -->
+    <div class="panel" id="panel-branding">
+      <div class="panel-header"><h2>Branding</h2><p>Customize your widget's look and feel</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;"><button class="btn btn-secondary" onclick="loadBranding()">Load Current</button></div>
+        <div class="form-group"><label>Brand Name</label><input id="brandName" /></div>
+        <div class="form-group"><label>Accent Color</label><input id="brandAccent" type="color" value="#818cf8" style="height:40px;" /></div>
+        <div class="btn-row"><button class="btn btn-primary" onclick="saveBranding()">Save Branding</button></div>
+        <div class="response-area" id="brandingResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Channels Panel ═══ -->
+    <div class="panel" id="panel-channels">
+      <div class="panel-header"><h2>Channel Settings</h2><p>Toggle support channels on and off</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;"><button class="btn btn-secondary" onclick="loadChannels()">Load Current</button></div>
+        <div id="channelToggles"></div>
+        <div class="btn-row"><button class="btn btn-primary" onclick="saveChannels()">Save Channels</button></div>
+        <div class="response-area" id="channelsResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Analytics Panel ═══ -->
+    <div class="panel" id="panel-analytics">
+      <div class="panel-header"><h2>Analytics Dashboard</h2><p>Aggregated stats from your support system</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="loadAnalytics(7)">Last 7 days</button>
+          <button class="btn btn-secondary" onclick="loadAnalytics(30)">Last 30 days</button>
+          <button class="btn btn-secondary" onclick="loadAnalytics(90)">Last 90 days</button>
+        </div>
+        <div class="stats-grid" id="analyticsStats"></div>
+        <div class="response-area" id="analyticsResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ KB Panel ═══ -->
+    <div class="panel" id="panel-kb">
+      <div class="panel-header"><h2>Knowledge Base</h2><p>Manage articles used for RAG context</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="loadKB()">Load Articles</button>
+          <button class="btn btn-success" onclick="toggleKBForm()">+ New Article</button>
+        </div>
+        <div id="kbForm" class="hidden" style="background:#1e293b; padding:16px; border-radius:8px; margin-bottom:16px;">
+          <div class="form-group"><label>Title</label><input id="kbTitle" /></div>
+          <div class="form-group"><label>Content</label><textarea id="kbContent" rows="4"></textarea></div>
+          <div class="form-group"><label>Category</label><input id="kbCategory" value="general" /></div>
+          <div class="form-group"><label>Tags (comma-separated)</label><input id="kbTags" /></div>
+          <div class="form-group"><label>Source Type</label>
+            <select id="kbSourceType"><option>text</option><option>url</option><option>file</option></select>
+          </div>
+          <div class="btn-row"><button class="btn btn-success" onclick="createKB()">Create Article</button><button class="btn btn-secondary" onclick="toggleKBForm()">Cancel</button></div>
+        </div>
+        <div class="form-group"><label>Search KB</label><div style="display:flex;gap:8px;"><input id="kbSearch" placeholder="Type to search..." /><button class="btn btn-sm btn-primary" onclick="searchKB()">Search</button></div></div>
+        <div id="kbList"></div>
+        <div class="response-area" id="kbResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ FAQ Panel ═══ -->
+    <div class="panel" id="panel-faq">
+      <div class="panel-header"><h2>FAQ Manager</h2><p>Manage frequently asked questions</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="loadFAQ()">Load FAQs</button>
+          <button class="btn btn-success" onclick="toggleFAQForm()">+ New FAQ</button>
+        </div>
+        <div id="faqForm" class="hidden" style="background:#1e293b; padding:16px; border-radius:8px; margin-bottom:16px;">
+          <div class="form-group"><label>Question</label><input id="faqQuestion" /></div>
+          <div class="form-group"><label>Answer</label><textarea id="faqAnswer" rows="3"></textarea></div>
+          <div class="form-group"><label>Category</label><input id="faqCategory" value="general" /></div>
+          <div class="btn-row"><button class="btn btn-success" onclick="createFAQ()">Create FAQ</button><button class="btn btn-secondary" onclick="toggleFAQForm()">Cancel</button></div>
+        </div>
+        <div id="faqList"></div>
+        <div class="response-area" id="faqResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Tickets Panel ═══ -->
+    <div class="panel" id="panel-tickets">
+      <div class="panel-header"><h2>Support Tickets</h2><p>View and manage customer support tickets</p></div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="loadTickets()">Load Tickets</button>
+          <button class="btn btn-success" onclick="toggleTicketForm()">+ New Ticket</button>
+        </div>
+        <div id="ticketForm" class="hidden" style="background:#1e293b; padding:16px; border-radius:8px; margin-bottom:16px;">
+          <div class="form-group"><label>Email</label><input id="ticketEmail" value="customer@example.com" /></div>
+          <div class="form-group"><label>Subject</label><input id="ticketSubject" /></div>
+          <div class="form-group"><label>Description</label><textarea id="ticketDesc" rows="3"></textarea></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group"><label>Priority</label><select id="ticketPriority"><option>low</option><option selected>medium</option><option>high</option><option>urgent</option></select></div>
+            <div class="form-group"><label>Category</label><input id="ticketCategory" value="general" /></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-success" onclick="createTicket()">Create Ticket</button><button class="btn btn-secondary" onclick="toggleTicketForm()">Cancel</button></div>
+        </div>
+        <div id="ticketList"></div>
+        <div class="response-area" id="ticketResponse"></div>
+      </div>
+    </div>
+
+    <!-- ═══ Chat Panel ═══ -->
+    <div class="panel" id="panel-chat">
+      <div class="panel-header">
+        <h2>Live Chat Test</h2>
+        <p>Test the AI chat with RAG. Requires a valid API key and Anthropic key in .env</p>
+      </div>
+      <div class="chat-container">
+        <div class="info-box" style="margin:16px 20px 0;">
+          API Key: <input id="chatApiKey" placeholder="tk_..." style="width:350px;display:inline-block;" />
+          <button class="btn btn-sm btn-primary" onclick="startChat()" style="margin-left:8px;">Connect</button>
+          <span id="chatStatus" style="margin-left:12px; font-size:12px; color:#64748b;"></span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg system">Enter your tenant API key above and click Connect to start chatting.</div>
+        </div>
+        <div class="chat-input-area">
+          <input id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChat()" disabled />
+          <button class="btn btn-primary" onclick="sendChat()" id="chatSendBtn" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let token = null;
+let apiKey = null;
+let chatSessionKey = null;
+
+// ─── Helpers ───────────────────────────────────────────────────
+async function api(method, path, body, useApiKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (useApiKey && apiKey) headers['X-API-Key'] = apiKey;
+  else if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, data };
+}
+
+function showResponse(elId, status, data) {
+  const el = document.getElementById(elId);
+  const cls = status < 300 ? 's2xx' : status < 500 ? 's4xx' : 's5xx';
+  el.innerHTML = `<div class="response-header"><span>Response</span><span class="status-code ${cls}">${status}</span></div><div class="response-body">${JSON.stringify(data, null, 2)}</div>`;
+}
+
+function showPanel(el) {
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + el.dataset.panel).classList.add('active');
+}
+
+// ─── Health ────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const { status, data } = await api('GET', '/health');
+    document.getElementById('statusDot').classList.toggle('online', status === 200);
+    document.getElementById('statusText').textContent = status === 200 ? 'Server Online' : 'Error';
+    document.getElementById('healthStats').innerHTML = `
+      <div class="stat-card"><div class="label">Status</div><div class="value green">${data.status || 'error'}</div></div>
+      <div class="stat-card"><div class="label">Uptime</div><div class="value">${Math.round(data.uptime || 0)}s</div></div>
+      <div class="stat-card"><div class="label">Timestamp</div><div class="value" style="font-size:14px;">${data.timestamp || '-'}</div></div>
+    `;
+    showResponse('healthResponse', status, data);
+  } catch (e) {
+    document.getElementById('statusDot').classList.remove('online');
+    document.getElementById('statusText').textContent = 'Offline';
+    document.getElementById('healthStats').innerHTML = `<div class="stat-card"><div class="label">Status</div><div class="value red">Offline</div></div>`;
+  }
+}
+
+// ─── Auth ──────────────────────────────────────────────────────
+async function register() {
+  const { status, data } = await api('POST', '/auth/register', {
+    name: document.getElementById('regName').value,
+    email: document.getElementById('regEmail').value,
+    password: document.getElementById('regPass').value,
+  });
+  if (data.token) setAuth(data.token, data.tenant);
+  showResponse('authResponse', status, data);
+}
+
+async function login() {
+  const { status, data } = await api('POST', '/auth/login', {
+    email: document.getElementById('loginEmail').value,
+    password: document.getElementById('loginPass').value,
+  });
+  if (data.token) setAuth(data.token, data.tenant);
+  showResponse('authResponse', status, data);
+}
+
+function setAuth(t, tenant) {
+  token = t;
+  apiKey = tenant.apiKey;
+  document.getElementById('authInfo').innerHTML = `Logged in as <strong>${tenant.name}</strong> (${tenant.email}) &mdash; Plan: <span class="badge badge-blue">${tenant.plan}</span> &mdash; API Key: <code>${tenant.apiKey}</code>`;
+  document.getElementById('authInfo').style.borderColor = '#22c55e30';
+  document.getElementById('authInfo').style.background = '#22c55e10';
+  document.getElementById('authInfo').style.color = '#86efac';
+  document.getElementById('chatApiKey').value = tenant.apiKey;
+}
+
+// ─── Bot Config ────────────────────────────────────────────────
+async function loadBotConfig() {
+  const { status, data } = await api('GET', '/owner/bot-config');
+  if (data.botConfig) {
+    document.getElementById('botName').value = data.botConfig.name || '';
+    document.getElementById('botGreeting').value = data.botConfig.greeting || '';
+    document.getElementById('botPrompt').value = data.botConfig.systemPrompt || '';
+    document.getElementById('botTone').value = data.botConfig.tone || 'professional';
+    document.getElementById('botLang').value = data.botConfig.language || 'en';
+  }
+  showResponse('botConfigResponse', status, data);
+}
+
+async function saveBotConfig() {
+  const { status, data } = await api('PUT', '/owner/bot-config', {
+    name: document.getElementById('botName').value,
+    greeting: document.getElementById('botGreeting').value,
+    systemPrompt: document.getElementById('botPrompt').value,
+    tone: document.getElementById('botTone').value,
+    language: document.getElementById('botLang').value,
+  });
+  showResponse('botConfigResponse', status, data);
+}
+
+// ─── Branding ──────────────────────────────────────────────────
+async function loadBranding() {
+  const { status, data } = await api('GET', '/owner/branding');
+  if (data.brandConfig) {
+    document.getElementById('brandName').value = data.brandConfig.name || '';
+    document.getElementById('brandAccent').value = data.brandConfig.accent || '#818cf8';
+  }
+  showResponse('brandingResponse', status, data);
+}
+
+async function saveBranding() {
+  const { status, data } = await api('PUT', '/owner/branding', {
+    name: document.getElementById('brandName').value,
+    accent: document.getElementById('brandAccent').value,
+  });
+  showResponse('brandingResponse', status, data);
+}
+
+// ─── Channels ──────────────────────────────────────────────────
+async function loadChannels() {
+  const { status, data } = await api('GET', '/owner/channels');
+  if (data.channelConfig) {
+    const el = document.getElementById('channelToggles');
+    el.innerHTML = Object.entries(data.channelConfig).map(([k, v]) =>
+      `<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" class="ch-toggle" data-key="${k}" ${v ? 'checked' : ''} style="width:auto;"/> <span style="font-size:14px;">${k}</span></label>`
+    ).join('');
+  }
+  showResponse('channelsResponse', status, data);
+}
+
+async function saveChannels() {
+  const config = {};
+  document.querySelectorAll('.ch-toggle').forEach(el => { config[el.dataset.key] = el.checked; });
+  const { status, data } = await api('PUT', '/owner/channels', config);
+  showResponse('channelsResponse', status, data);
+}
+
+// ─── Analytics ─────────────────────────────────────────────────
+async function loadAnalytics(days) {
+  const { status, data } = await api('GET', '/owner/analytics?days=' + (days || 30));
+  if (data.overview) {
+    const o = data.overview;
+    document.getElementById('analyticsStats').innerHTML = `
+      <div class="stat-card"><div class="label">Total Tickets</div><div class="value">${o.totalTickets}</div></div>
+      <div class="stat-card"><div class="label">Open Tickets</div><div class="value yellow">${o.openTickets}</div></div>
+      <div class="stat-card"><div class="label">Resolved</div><div class="value green">${o.resolvedTickets}</div></div>
+      <div class="stat-card"><div class="label">Chat Sessions</div><div class="value">${o.totalSessions}</div></div>
+      <div class="stat-card"><div class="label">Active Chats</div><div class="value green">${o.activeSessions}</div></div>
+      <div class="stat-card"><div class="label">Messages</div><div class="value">${o.totalMessages}</div></div>
+      <div class="stat-card"><div class="label">KB Articles</div><div class="value">${o.kbArticleCount}</div></div>
+      <div class="stat-card"><div class="label">FAQs</div><div class="value">${o.faqCount}</div></div>
+    `;
+  }
+  showResponse('analyticsResponse', status, data);
+}
+
+// ─── Knowledge Base ────────────────────────────────────────────
+function toggleKBForm() { document.getElementById('kbForm').classList.toggle('hidden'); }
+
+async function loadKB() {
+  const { status, data } = await api('GET', '/kb');
+  if (data.articles) {
+    document.getElementById('kbList').innerHTML = `<table class="data-table"><thead><tr><th>Title</th><th>Category</th><th>Source</th><th>Active</th><th>Actions</th></tr></thead><tbody>${data.articles.map(a => `<tr><td>${a.title}</td><td><span class="badge badge-blue">${a.category}</span></td><td>${a.sourceType}</td><td>${a.isActive ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-gray">No</span>'}</td><td><button class="btn btn-sm btn-danger" onclick="deleteKB('${a.id}')">Delete</button></td></tr>`).join('')}</tbody></table><div style="margin-top:8px;font-size:12px;color:#64748b;">Showing ${data.articles.length} of ${data.total} articles</div>`;
+  }
+  showResponse('kbResponse', status, data);
+}
+
+async function searchKB() {
+  const q = document.getElementById('kbSearch').value;
+  if (!q) return loadKB();
+  const { status, data } = await api('GET', '/kb/search?q=' + encodeURIComponent(q));
+  if (data.articles) {
+    document.getElementById('kbList').innerHTML = `<table class="data-table"><thead><tr><th>Title</th><th>Category</th><th>Score</th></tr></thead><tbody>${data.articles.map(a => `<tr><td>${a.title}</td><td>${a.category}</td><td><span class="badge badge-green">${(a._score * 100).toFixed(0)}%</span></td></tr>`).join('')}</tbody></table>`;
+  }
+  showResponse('kbResponse', status, data);
+}
+
+async function createKB() {
+  const tags = document.getElementById('kbTags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const { status, data } = await api('POST', '/kb', {
+    title: document.getElementById('kbTitle').value,
+    content: document.getElementById('kbContent').value,
+    category: document.getElementById('kbCategory').value,
+    tags,
+    sourceType: document.getElementById('kbSourceType').value,
+  });
+  showResponse('kbResponse', status, data);
+  if (status < 300) { toggleKBForm(); loadKB(); }
+}
+
+async function deleteKB(id) { await api('DELETE', '/kb/' + id); loadKB(); }
+
+// ─── FAQ ───────────────────────────────────────────────────────
+function toggleFAQForm() { document.getElementById('faqForm').classList.toggle('hidden'); }
+
+async function loadFAQ() {
+  const { status, data } = await api('GET', '/faq');
+  if (data.faqs) {
+    document.getElementById('faqList').innerHTML = `<table class="data-table"><thead><tr><th>#</th><th>Question</th><th>Category</th><th>Active</th><th>Actions</th></tr></thead><tbody>${data.faqs.map((f, i) => `<tr><td>${i + 1}</td><td>${f.question}</td><td><span class="badge badge-blue">${f.category}</span></td><td>${f.isActive ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-gray">No</span>'}</td><td><button class="btn btn-sm btn-danger" onclick="deleteFAQ('${f.id}')">Delete</button></td></tr>`).join('')}</tbody></table>`;
+  }
+  showResponse('faqResponse', status, data);
+}
+
+async function createFAQ() {
+  const { status, data } = await api('POST', '/faq', {
+    question: document.getElementById('faqQuestion').value,
+    answer: document.getElementById('faqAnswer').value,
+    category: document.getElementById('faqCategory').value,
+  });
+  showResponse('faqResponse', status, data);
+  if (status < 300) { toggleFAQForm(); loadFAQ(); }
+}
+
+async function deleteFAQ(id) { await api('DELETE', '/faq/' + id); loadFAQ(); }
+
+// ─── Tickets ───────────────────────────────────────────────────
+function toggleTicketForm() { document.getElementById('ticketForm').classList.toggle('hidden'); }
+
+async function loadTickets() {
+  const { status, data } = await api('GET', '/tickets');
+  if (data.tickets) {
+    const prioColors = { low: 'gray', medium: 'blue', high: 'yellow', urgent: 'red' };
+    const statusColors = { open: 'yellow', in_progress: 'blue', waiting: 'gray', resolved: 'green', closed: 'gray' };
+    document.getElementById('ticketList').innerHTML = `<table class="data-table"><thead><tr><th>Ticket #</th><th>Subject</th><th>Status</th><th>Priority</th><th>Replies</th><th>Actions</th></tr></thead><tbody>${data.tickets.map(t => `<tr><td><code>${t.ticketNo}</code></td><td>${t.subject}</td><td><span class="badge badge-${statusColors[t.status] || 'gray'}">${t.status}</span></td><td><span class="badge badge-${prioColors[t.priority] || 'gray'}">${t.priority}</span></td><td>${t._count?.replies || 0}</td><td><button class="btn btn-sm btn-secondary" onclick="viewTicket('${t.id}')">View</button> <button class="btn btn-sm btn-danger" onclick="deleteTicket('${t.id}')">Delete</button></td></tr>`).join('')}</tbody></table><div style="margin-top:8px;font-size:12px;color:#64748b;">Showing ${data.tickets.length} of ${data.total} tickets</div>`;
+  }
+  showResponse('ticketResponse', status, data);
+}
+
+async function createTicket() {
+  const { status, data } = await api('POST', '/tickets', {
+    email: document.getElementById('ticketEmail').value,
+    subject: document.getElementById('ticketSubject').value,
+    description: document.getElementById('ticketDesc').value,
+    priority: document.getElementById('ticketPriority').value,
+    category: document.getElementById('ticketCategory').value,
+  });
+  showResponse('ticketResponse', status, data);
+  if (status < 300) { toggleTicketForm(); loadTickets(); }
+}
+
+async function viewTicket(id) {
+  const { status, data } = await api('GET', '/tickets/' + id);
+  showResponse('ticketResponse', status, data);
+}
+
+async function deleteTicket(id) { await api('DELETE', '/tickets/' + id); loadTickets(); }
+
+// ─── Chat ──────────────────────────────────────────────────────
+function startChat() {
+  apiKey = document.getElementById('chatApiKey').value.trim();
+  if (!apiKey) return alert('Enter your tenant API key');
+  chatSessionKey = null;
+  document.getElementById('chatMessages').innerHTML = '<div class="chat-msg system">Connected! Type a message to start chatting with the AI.</div>';
+  document.getElementById('chatInput').disabled = false;
+  document.getElementById('chatSendBtn').disabled = false;
+  document.getElementById('chatStatus').textContent = 'Connected';
+  document.getElementById('chatStatus').style.color = '#22c55e';
+  document.getElementById('chatInput').focus();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  appendChat('user', msg);
+  appendChat('assistant', '<div class="loading"></div>', true);
+
+  try {
+    const body = { message: msg, inputMethod: 'text' };
+    if (chatSessionKey) body.sessionKey = chatSessionKey;
+
+    const res = await fetch(API + '/chat/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    removeLoading();
+
+    if (res.ok) {
+      chatSessionKey = data.sessionKey;
+      appendChat('assistant', data.message.content);
+      if (data.ticketSuggestion) {
+        const t = data.ticketSuggestion;
+        const el = document.getElementById('chatMessages');
+        el.innerHTML += `<div class="ticket-card"><h4>Ticket Suggestion</h4><p><strong>Subject:</strong> ${t.subject}</p><p><strong>Category:</strong> ${t.category} | <strong>Priority:</strong> ${t.priority}</p><p>${t.description}</p><button class="btn btn-sm btn-success" onclick="confirmTicket()">Create Ticket</button></div>`;
+        el.scrollTop = el.scrollHeight;
+      }
+      document.getElementById('chatStatus').textContent = 'Session: ' + chatSessionKey.substring(0, 8) + '...';
+    } else {
+      appendChat('system', 'Error ' + res.status + ': ' + (data.message || 'Unknown error'));
+    }
+  } catch (e) {
+    removeLoading();
+    appendChat('system', 'Network error: ' + e.message);
+  }
+}
+
+async function confirmTicket() {
+  const email = prompt('Enter your email for the ticket:', 'customer@example.com');
+  if (!email) return;
+  const res = await fetch(API + '/chat/create-ticket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+    body: JSON.stringify({ sessionKey: chatSessionKey, email, subject: 'From chat', description: 'Ticket created from chat conversation', category: 'general', priority: 'medium' }),
+  });
+  const data = await res.json();
+  if (res.ok) appendChat('system', 'Ticket created: ' + data.ticket.ticketNo);
+  else appendChat('system', 'Error creating ticket: ' + (data.message || 'Unknown'));
+}
+
+function appendChat(role, content, isLoading) {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  if (isLoading) div.id = 'chatLoading';
+  div.innerHTML = content;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function removeLoading() {
+  const el = document.getElementById('chatLoading');
+  if (el) el.remove();
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+checkHealth();
+</script>
+</body>
+</html>

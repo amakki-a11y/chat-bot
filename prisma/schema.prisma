@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  free
+  pro
+  enterprise
+}
+
+enum SessionStatus {
+  active
+  escalated
+  closed
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+enum InputMethod {
+  text
+  voice
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  waiting
+  resolved
+  closed
+}
+
+enum TicketSource {
+  web
+  chat
+  voice
+  api
+}
+
+enum ReplyFrom {
+  admin
+  customer
+  ai
+}
+
+enum SourceType {
+  text
+  url
+  file
+}
+
+model Tenant {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  plan            Plan     @default(free)
+  apiKey          String   @unique
+  botConfig       Json     @default("{\"name\": \"Support Bot\", \"greeting\": \"Hello! How can I help you today?\", \"systemPrompt\": \"You are a helpful customer support assistant.\", \"tone\": \"professional\", \"language\": \"en\"}")
+  brandConfig     Json     @default("{\"name\": \"\", \"logo\": \"\", \"accent\": \"#2563eb\"}")
+  channelConfig   Json     @default("{\"chat\": true, \"voice\": false, \"voiceNote\": false, \"call\": false, \"faq\": true, \"tickets\": true, \"fileAttach\": true}")
+  fileConfig      Json     @default("{\"maxSizeMb\": 10, \"allowedTypes\": [\"image/png\", \"image/jpeg\", \"application/pdf\", \"text/plain\"], \"maxFiles\": 5}")
+  rateLimitConfig Json     @default("{\"messagesPerMin\": 10, \"messagesPerDay\": 100, \"tokensPerMsg\": 2000}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  knowledgeBases   KnowledgeBase[]
+  faqs             FAQ[]
+  chatSessions     ChatSession[]
+  supportTickets   SupportTicket[]
+  ticketFiles      TicketFile[]
+  webhookEndpoints WebhookEndpoint[]
+}
+
+model KnowledgeBase {
+  id         String     @id @default(uuid())
+  tenantId   String
+  title      String
+  content    String
+  category   String     @default("general")
+  tags       String[]   @default([])
+  sourceType SourceType @default(text)
+  sourceUrl  String?
+  fileName   String?
+  filePath   String?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, isActive])
+}
+
+model FAQ {
+  id        String   @id @default(uuid())
+  tenantId  String
+  question  String
+  answer    String
+  category  String   @default("general")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, category])
+}
+
+model ChatSession {
+  id            String        @id @default(uuid())
+  tenantId      String
+  sessionKey    String        @unique @default(uuid())
+  customerEmail String?
+  customerName  String?
+  userAgent     String?
+  ipAddress     String?
+  status        SessionStatus @default(active)
+  metadata      Json          @default("{}")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages       ChatMessage[]
+  supportTickets SupportTicket[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model ChatMessage {
+  id          String      @id @default(uuid())
+  sessionId   String
+  role        MessageRole
+  content     String
+  inputMethod InputMethod @default(text)
+  tokenCount  Int         @default(0)
+  metadata    Json        @default("{}")
+  createdAt   DateTime    @default(now())
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  ticketFiles TicketFile[]
+
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+}
+
+model SupportTicket {
+  id            String         @id @default(uuid())
+  tenantId      String
+  ticketNo      String         @unique
+  email         String
+  subject       String
+  category      String         @default("general")
+  priority      TicketPriority @default(medium)
+  status        TicketStatus   @default(open)
+  description   String
+  source        TicketSource   @default(web)
+  assignedTo    String?
+  chatSessionId String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chatSession ChatSession?  @relation(fields: [chatSessionId], references: [id], onDelete: SetNull)
+  replies     TicketReply[]
+  files       TicketFile[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, priority])
+  @@index([email])
+}
+
+model TicketReply {
+  id        String    @id @default(uuid())
+  ticketId  String
+  from      ReplyFrom
+  message   String
+  metadata  Json      @default("{}")
+  createdAt DateTime  @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model TicketFile {
+  id            String  @id @default(uuid())
+  tenantId      String
+  ticketId      String?
+  chatMessageId String?
+  originalName  String
+  storedPath    String
+  mimeType      String
+  sizeBytes     Int
+  createdAt     DateTime @default(now())
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket      SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  chatMessage ChatMessage?   @relation(fields: [chatMessageId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([ticketId])
+  @@index([chatMessageId])
+}
+
+model WebhookEndpoint {
+  id       String   @id @default(uuid())
+  tenantId String
+  name     String
+  url      String
+  secret   String
+  events   String[] @default([])
+  isActive Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logs   WebhookLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  endpointId String
+  event      String
+  payload    Json
+  statusCode Int?
+  success    Boolean  @default(false)
+  retries    Int      @default(0)
+  error      String?
+  createdAt  DateTime @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+  @@index([endpointId, createdAt])
+}
